@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liam Kearney</title>
+    <base href="https://liamkearn.me/" />
+    <style>
+        :root {
+            --background: #fff;
+            --text: #000;
+            --link: #00f;
+            --hover: #0ff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #000;
+                --text: #fff;
+                --link: #0ff;
+                --hover: #00f;
+            }
+        }
+
+        body,
+        dialog {
+            background: var(--background);
+            color: var(--text);
+        }
+
+        a {
+            text-decoration: none;
+            color: var(--link);
+        }
+
+        a:hover {
+            background-color: var(--hover);
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>I am Liam Kearney</h1>
+    </header>
+    <main>
+        <p><time datetime="P2Y">Previously</time> developing at <a href="https://sproutlabs.com.au">Sprout Labs</a>,
+            <time datetime="PT0S">now</time> majoring in Computer Science at <a href="https://www.utas.edu.au/"><abbr
+                    title="the University of Tasmania">UTAS</abbr></a>.
+        </p>
+        <p>I can still be <a href="mailto:liam@sproutlabs.com.au">found</a> part-time with Sprout Labs.</p>
+        <p>My contributions to gaslighting GitHub Copilot can be found <a href="https://github.com/LiamKearn">here</a>.
+            <hr />
+        <p>You can reach me at:</p>
+    </main>
+    <address>
+        <a href="mailto:contact@liamkearn.me">contact@liamkearn.me</a>
+        <br />
+        <a href="tel:+610400476785">0400 476 785</a> (I may not answer, depending on caller ID)
+    </address>
+    <hr />
+    <button onclick="this.nextElementSibling.showModal()">Identity</button>
+    <dialog>
+        <label for="pgp-key">PGP Key</label>
+        <button onclick="this.nextElementSibling.nextElementSibling.select()">Select</button>
+        <br />
+        <textarea id="pgp-key" readonly cols="70" rows="4">
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+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
+RZaLpoWSz+QcBCw=
+=6Ww6
+-----END PGP PUBLIC KEY BLOCK-----
+        </textarea>
+        <hr />
+        <label for="ssh-key">SSH</label>
+        <button onclick="this.nextElementSibling.nextElementSibling.select()">Select</button>
+        <br />
+        <textarea id="ssh-key" readonly cols="128" rows="1">
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINR9F1sZc7Mtl2jM7jkgNaFljr9klZj8wTT0/p9tuL5w Liam Kearney (LiamKearn) &lt;contact@liamkearn.me&gt;
+        </textarea>
+        <br />
+        <form method="dialog">
+            <center><button>DISMISS</button></center>
+        </form>
+    </dialog>
+    <footer>
+        <p><small>🄍 <time datetime="2023-08-23">2023</time></small> - Liam Kearney</p>
+    </footer>
+</body>
+
+</html>

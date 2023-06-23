@@ -1,0 +1,16 @@
+bin/*.js
+lib/*.js
+test/*.js
+!jest.config.js
+*.d.ts
+node_modules
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+package-lock.json
+content/build
+content/dist
+content/styles/style.css.map
+content/styles/style.css
