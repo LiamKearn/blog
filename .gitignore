@@ -14,3 +14,4 @@ content/build
 content/dist
 content/styles/style.css.map
 content/styles/style.css
+pnpm-lock.yaml
