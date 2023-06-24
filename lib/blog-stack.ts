@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { CfnParameter, RemovalPolicy } from 'aws-cdk-lib';
 import { Certificate } from 'aws-cdk-lib/aws-certificatemanager';
-import { Distribution, HttpVersion, PriceClass, ViewerProtocolPolicy } from 'aws-cdk-lib/aws-cloudfront';
+import { Distribution, HttpVersion, PriceClass, ViewerProtocolPolicy, GeoRestriction } from 'aws-cdk-lib/aws-cloudfront';
 import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { AnyPrincipal, Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import {
@@ -108,6 +108,8 @@ export class BlogStack extends cdk.Stack {
       logBucket: LoggingBucket,
       logFilePrefix: 'cflogs',
       httpVersion: HttpVersion.HTTP2_AND_3,
+      // Have thousands of testing requests but no actual traffic to index.html from theses countries.
+      geoRestriction: GeoRestriction.denylist('HK', 'CN', 'KP', 'RU')
     });
 
     for (const [name, bucket] of Object.entries({
