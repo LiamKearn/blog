@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo="> <!-- Just the PNG magic word -->
+    <title>Liam Kearney</title>
+    <base href="https://liamkearn.me/" />
+    <style>
+        :root {
+            --background: #fff;
+            --text: #000;
+            --link: #00f;
+            --hover: #0ff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #000;
+                --text: #fff;
+                --link: #0ff;
+                --hover: #00f;
+            }
+        }
+
+        body,
+        dialog {
+            background: var(--background);
+            color: var(--text);
+            padding: 2em;
+        }
+
+        a {
+            text-decoration: none;
+            color: var(--link);
+        }
+
+        code {
+            background-color: var(--text);
+            color: var(--background);
+            padding: 0.2em;
+            border-radius: 0.2em;
+        }
+
+        a:hover {
+            background-color: var(--hover);
+        }
+    </style>
+</head>
+
+<body>
+<a href="/"><h5>Back to home</h5></a>
+<h1><a href="https://nixos.org/guides/how-nix-works.html">NixOS</a> + Starting UNI = Should forked out the extra dosh for a macbook?</h1>
+<p>Today I had a tutorial that required splunk enterprise to be installed.</p>
+<p>I use NixOS, so the only option for me was to use the tar ball distribution as
+the other packaging options are for debian and redhat based systems.</p>
+<p>Upon running <code>./bin/splunk start</code> I was greeted with the following error:</p>
+<pre>
+fish: Job 1, './splunk start --accept-license' terminated by signal SIGSEGV (Address boundary error)
+</pre>
+<p>At first I thought for some silly reason that splunk literally meant "for linux
+kernels 3.x, 4.x and 5.4.x" on their downloads page and that the kernel had some sort of breaking
+change. Not sure why I thought a bad mem read would be caused by a kernel change,
+but being stupid I did. Anyways it took all of 5 minutes to literally downgrade
+my kernel to 5.4.0 from <code>uname -r</code> -> <code>6.3.11</code>to <code>5.4</code>
+thanks to nixos. That obviously didn't work but my regular kernel was just one
+boot entry away thanks to nixos so I booted back into that and decided to do
+some more digging.</p>
+
+<p>I noticed a large amount of shared libraries in the <code>lib</code> directory, so I
+ensured that all permissions were correct as stated in the manifest file. As
+part of starting UNI i've (maybe unfortunately) had to learn python, so I
+decided to put my 2-3 days of python knowledge to the test and write a small
+script to do this rather than doing it in the shell. It was suprising easily
+even with very little knowledge of python's syntactic sugar.</p>
+<p>The manifest file was structured as follows:</p>
+<pre>
+d 755 splunk splunk splunk/bin -
+f 555 splunk splunk splunk/bin/genWebCert.sh 5e8b5dd29a8c8fc97cb29abfcd9328e9e395ce31cd8e1839dcef3f546278e7d0
+l 555 splunk splunk splunk/bin/idle3 -> idle3.7
+</pre>
+<p>And the python:</p>
+<pre>
+from pwd import getpwnam
+import os
+
+manifest = open("manifest", "r")
+
+known_users = {}
+known_groups = {}
+
+def adjust_file_meta(path, mode, user, group):
+    if user not in known_users:
+        uid = getpwnam(user).pw_uid
+        known_users[user] = uid
+    else: uid = known_users[user]
+    if group not in known_groups:
+        gid = getpwnam(group).pw_gid
+        known_groups[group] = gid
+    else: gid = known_groups[group]
+    oct_mode = int(mode, 8)
+    print(f"Changing mode to {oct_mode} (oct) for {path}")
+    os.chmod(path, oct_mode)
+    print(f"Changing ownership to {user}:{group} for {path}")
+    os.chown(path, uid, gid)
+
+def main():
+    print("You may need to run this script as root or create a 'splunk' user and group.")
+
+    for line in manifest:
+        # Try to parse (production ready parsing right here) as either a regular file or a symlink
+        try:
+            ty, mode, user, group, path, _ = line.split(" ")
+            adjust_file_meta(path, mode, user, group)
+        except ValueError:
+            ty, mode, user, group, path, _, _ = line.split(" ")
+            adjust_file_meta(path, mode, user, group)
+
+    print("Done.")
+
+if __name__ == "__main__":
+    main()
+</pre>
+<p>In hindsight i could have branched on the first character of the line rather
+            than mucking around with the try except, but it worked.</p>
+<p>and setting up the user and group was a simple change to my nixos config:</p>
+<pre>
+users = {
+  users.splunk = {
+    isSystemUser = true;
+    group = "splunk";
+  }
+  groups.splunk = {}
+}
+</pre>
+
+<p>Well that didn't work either.. I was still getting the same error, delving more
+into exactly what dynamic linking bullshitery was going on it was time to bust
+out <code>strace</code>. No bueno the only syscall I could see was:</p>
+<pre>
+execve("/opt/splunk/bin/splunk", ["/opt/splunk/bin/splunk"], 0x7ffe600af570 /* 106 vars */) = -1 ENOENT (No such file or directory)
+strace: exec: No such file or directory
++++ exited with 1 +++
+</pre>
+<p>not very useful at first glance but if you fire up the manpage for <code>execve</code>
+you'll notice this key refresher:</p>
+<pre>
+pathname must be either a binary executable, or a script starting with a line of the form:
+                  #!interpreter [optional-arg]
+</pre>
+
+<p>So a binary or a script denoted with a shebang? This for some odd reason
+reminded me of an interesting article I skimmed a while ago about creating a 
+custom binary format for the smallest possible binary by creating a custom kernel module to serve things like
+requests for shared objects
+<a href="https://www.muppetlabs.com/~breadbox/txt/mopb.html">https://www.muppetlabs.com/~breadbox/txt/mopb.html</a>.</p>
+
+<p>Remembering this I decided to check out exactly how the splunk binary was being
+intrerpreted by running <code>readelf -a splunk | grep interpreter</code> and was greeted
+with the problem:</p>
+<pre>
+[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+</pre>
+<p>Anyway this is ELF (not the obsecure but cool binfmt I mentioned above) so the
+program interpreter is just a string in the header of the binary file that is
+used to determine how to run the binary. This is usually
+<code>/lib64/ld-linux-x86-64.so.2</code> on most linux systems. ld is the runtime linker
+facilitating the loading of shared objects post the kernel's loading of the
+binary.</p>
+
+<p>Let's compare this to a binary that works on my system to highlight the issue:</p>
+<pre>
+$ nix-shell -p bintools --command fish # Jump into a shell with readelf installed.
+$ readelf -a (which ls) | rg interpreter # Find the interpreter for ls
+[Requesting program interpreter: /nix/store/46m4xx889wlhsdj72j38fnlyyvvvvbyb-glibc-2.37-8/lib/ld-linux-x86-64.so.2]
+</pre>
+
+<p>Ah ok so the interpreter is being set to the absolute path of the interpreter in
+my current nix profile. This is a very common pattern in nixos as it allows
+fully visualised and atomic changes to be computed from software's dependency
+graphs. I'm very new to NixOS (about 4-5 days in) and I've seen quite a lot of
+patching of binaries when dealing with packaging pre-built software. This was
+my main hint for the fix.</p>
+
+<p>Ok so stupid fix:</p>
+<pre>
+patchelf --set-interpreter /nix/store/46m4xx889wlhsdj72j38fnlyyvvvvbyb-glibc-2.37-8/lib/ld-linux-x86-64.so.2 splunk
+</pre>
+
+<p>Well that worked, there are a <strong>million reasons</strong> why this is a
+bad idea but I was in the middle of a tutorial and had already wasted time trying to
+connect to the wifi (EAP) instead of the PSK using <code>wpa_supplicant</code> and
+<code>wpa_cli</code> (which I eventually got working by using my phone
+as a hotspot and connecting to that :^) smarter not harder).</p>
+
+<p>Ok so now we have a few different errors which are really just the same error we
+need to fix <strong>all</strong> the ELF executables shipped with splunk.</p>
+
+<p>Now I might not be new to linux desktop but abusing the shell to create slow
+ambominations is doable:</p>
+<pre>
+sudo fd . --type f | sudo xargs file | rg 'ELF' | awk '{print $1}' | sed -e 's/://' > files.txt
+</pre>
+
+<p>Let's find all files, pipe them to <code>file</code> to get a file description, filter for
+those that are ELF binaries, use awk to get the first column (the file path) and
+finally remove the trailing <code>:</code> with the stream editor and pipe that into a
+scrach file. I did a quick check to see if <code>man find</code> or <code>man fd</code> had a way to
+directly filter for ELF binaries but I couldn't find anything, another route
+would be to look at readelf's status code (I'd guess that would work).</p>
+
+<p>Anyways let's use some vim magic to continue our journey:</p>
+<pre>
+vi files.txt
+</pre>
+
+<p>Now in vim let's run the following substitute command:</p>
+<pre>
+s/\(.*\)/readelf -a \1 | grep Requesting\\ program\\ interpreter:\\ \\\/lib64\\\/ld-linux-x86-64.so.2 > \/dev\/null \&\& echo "\1"/
+</pre>
+eg.
+<pre>
+./mybinary
+</pre>
+into:
+<pre>
+readelf -a ./mybinary | grep interpret > /dev/null && echo "./mybinary"
+</pre>
+<p>Now we've transformed our list of files into a list commands that will either
+return the file name (if it has an interpreter) or a bad exit code (if it does
+not). Next I press gg to go to the top of the file and then <code>V</code> to enter visual
+line mode and then <code>G</code> to select all the lines. Invoking command mode with
+<code>:'<,'>!sh</code> spawns shell processes for each line in the file and runs them. If a
+line returns a non-zero exit code then it will be removed from the buffer. We've
+now effectively filtered all files shipped with splunk to:</p>
+<ol>
+    <li>ELF binaries</li>
+    <li>That have an interpreter</li>
+</ol>
+<p>In my case that went from <code>21365</code> files to <code>135</code> ELF binaries to just <code>33</code> files
+to patch.</p>
+
+<p>Now we can use the same vim magic to transform this list into a list of
+            <code>patchelf</code> commands to run:</p>
+<pre>
+s/\(.*\)/patchelf --set-interpreter \/nix\/store\/46m4xx889wlhsdj72j38fnlyyvvvvbyb-glibc-2.37-8\/lib\/ld-linux-x86-64.so.2 \1/
+</pre>
+and repeat our <code>:'<,'>!sh</code> command to patch all the binaries.
+
+<p>And finally I can run splunk! In all honestly this is exactly what I expected
+when installing software on linux, it's not a big deal to spend more time upfront
+on things for a deeper understanding IMO. I'm a bit disappointed the UNI leans
+into software as proprietary as splunk but I'm happy to learn it either way :^).</p>
+<a href="/"><h5>Back to home</h5></a>
+</body>
