@@ -212,7 +212,7 @@ sudo fd . --type f | sudo xargs file | rg 'ELF' | awk '{print $1}' | sed -e 's/:
 <p>Let's find all files, pipe them to <code>file</code> to get a file description, filter for
 those that are ELF binaries, use awk to get the first column (the file path) and
 finally remove the trailing <code>:</code> with the stream editor and pipe that into a
-scrach file. I did a quick check to see if <code>man find</code> or <code>man fd</code> had a way to
+scratch file. I did a quick check to see if <code>man find</code> or <code>man fd</code> had a way to
 directly filter for ELF binaries but I couldn't find anything, another route
 would be to look at readelf's status code (I'd guess that would work).</p>
 
